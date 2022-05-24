@@ -18,7 +18,7 @@ class Discovery(object):
         self.socket.sendto(data, ('<broadcast>', PH803W_UDP_PORT))
         print("Sent request message!")
         
-        data, remote = self.socket.recvfrom(2048)
+        data, remote = self.socket.recvfrom(1024)
 
         if data[0] != 0 and data[1] != 0 and data[2] != 0 and data[2] != 3:
             print('Ignore data package because invalid prefix: %s' % data[0:3])
@@ -66,6 +66,9 @@ class Discovery(object):
 
         self.result['status'] = ['success']
 
+    def close(self):
+        self.socket.close()
+
     def get_result(self):
         return str(self.result)
 
@@ -74,7 +77,7 @@ class Discovery(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        self.socket.close()
+        self.close()
 
 if __name__ == '__main__':
     with Discovery() as d:
