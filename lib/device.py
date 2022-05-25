@@ -1,4 +1,6 @@
 import socket
+import asyncio
+import time
 from sys import argv
 
 PH803W_DEFAULT_TCP_PORT = 12416
@@ -12,6 +14,9 @@ class Device(object):
         self.result = {}
         self.host = host
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    async def run_async(self):
+        self.run()
 
     def run(self):
         self.loop = True
@@ -41,7 +46,7 @@ class Device(object):
                 empty_counter += 1
                 continue
             empty_counter = 0
-            print(response)
+            # print(response)
             if len(response) == 18:
                 flag1 = response[8]
                 if flag1 & 0b0000_0100:
@@ -66,20 +71,65 @@ class Device(object):
 
             self.socket.sendall(data)
             response = self.socket.recv(1024)
-            #print(response)
 
 
+    def _handle_response(self, data):
+        if data[0] != 0 and data[1] != 0 and data[2] != 0 and data[2] != 3:
+            print('Ignore data package because invalid prefix: %s' % data[0:3])
+            self.result['status'] = ['Error', 'Ignore data package because invalid prefix']
+            return
+        data_length = data[4]
+        if len(data) != data_length + 5:
+            if len(data) > data_length:
+                additional_data = data[data_length: len(data)]
+                data = data[0 : data_length]
+                print('Split into two data packages because additional data detected. First %s - Second %s}' % (data.toString('hex'), additional_data.toString('hex')))
+                self._handle_response(additional_data)
+            else:
+                print('Ignore data package because invalid length(%s): %s' % (data_length, data))
+                self.result['status'] = ['Error', 'Ignore data package because invalid length']
+                return
+
+        message_type = data[7]
+        if message_type == 0x07:
+            self._handle_passcode_response(data)
+        elif message_type == 0x09:
+            self._handle_login_response(data)
+        elif message_type == 0x16:
+            self._handle_ping_pong_response()
+        elif message_type == 0x91:
+            self._handle_data_response(data)
+        elif message_type == 0x94:
+            self._handle_data_extended_response(data)
+        else:
+            print('Ignore data package because invalid message type %s: %s' % (message_type, data))
+            self.result['status'] = ['Ignore', 'Ignore data package because invalid length', message_type, data]
+
+    def _handle_passcode_response(self, data):
         pass
-        #self.socket.bind((host, PH803W_DEFAULT_TCP_PORT))
-        #self.socket.listen()
-        #conn, addr = self.socket.accept()
-        #with conn:
-        #    print('Connected to: %s' % addr)
-        #    while True:
-        #        data = conn.recv(1024)
-        #        if not data:
-        #            break
-        #        conn.sendall(data)
+    def _handle_login_response(self, data):
+        pass
+    def _handle_ping_pong_response(self):
+        pass
+    def _handle_data_extended_response(self, data):
+        pass
+
+    def _send_ping(self):
+        pass
+    #     if (this.pingWaitTimeout) {
+    #         clearTimeout(this.pingWaitTimeout);
+    #         this.pingWaitTimeout = null;
+    #     }
+    #     if (this.pingTimeout) {
+    #         clearTimeout(this.pingTimeout);
+    #         this.pingTimeout = null;
+    #     }
+    #     debug('received pong');
+    #     this.pingTimeout = setTimeout(() => {
+    #         this.pingTimeout = null;
+    #         this._sendPing();
+    #     }, this.options.pingInterval || PH803W_PING_INTERVAL);
+    # }    def _handle_data_response(self, data):
 
     def abort(self):
         self.loop = False
@@ -99,5 +149,11 @@ class Device(object):
 
 
 if __name__ == '__main__':
-    with Device('192.168.1.89') as d:
-        print(d.get_result())
+    #with Device('192.168.1.89') as d:
+    #    print(d.get_result())
+
+    loop = asyncio.get_event_loop()
+    device = Device('192.168.1.89')
+    loop.run_until_complete(device.run_async())
+    print(device.get_result())
+    loop.close()

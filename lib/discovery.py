@@ -1,4 +1,5 @@
 import socket
+import asyncio
 
 PH803W_UDP_PORT = 12414
 
@@ -12,6 +13,9 @@ class Discovery(object):
         # Set a timeout so the socket does not block
         # indefinitely when trying to receive data.
         self.socket.settimeout(1)
+
+    async def run_async(self):
+        self.run()
 
     def run(self):
         data = bytes.fromhex('0000000303000003')
@@ -39,7 +43,7 @@ class Discovery(object):
 
         print('Parsing discovered device: %s: %s - %s' % (remote[0], remote[1], data[7:]))
         self.result['status'] = ['Error']  # Temporary until all pass
-        self.result['result'] = {}
+        self.result['result'] = {'ip' : remote[0]}
 
         id1_length = data[9]
         id1_raw = data[10 : 10 + id1_length]
@@ -70,7 +74,7 @@ class Discovery(object):
         self.socket.close()
 
     def get_result(self):
-        return str(self.result)
+        return self.result
 
     def __enter__(self):
         self.run()
@@ -82,3 +86,9 @@ class Discovery(object):
 if __name__ == '__main__':
     with Discovery() as d:
         print(d.get_result())
+
+    loop = asyncio.get_event_loop()
+    discovery = Discovery()
+    loop.run_until_complete(discovery.run_async())
+    print(discovery.get_result())
+    loop.close()
