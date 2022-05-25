@@ -65,7 +65,7 @@ class Device(object):
                 unknown1 = int.from_bytes(unknown1_raw, 'big')
                 unknown2_raw = response[15 : 18]
                 unknown2 = int.from_bytes(unknown2_raw, 'big')
-                print('pH: %s, Redox: %s, U1: %s, U2: %s' % (ph, redox, unknown1, unknown2))
+                print('pH: %s, Redox: %s, U1: %s, U2: %s' % (ph, redox, unknown1, unknown2), flush=True)
 
 
 
