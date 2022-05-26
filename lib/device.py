@@ -44,9 +44,9 @@ class Device(object):
                 self._connect()
                 try:
                     self._run(once)
-                except Exception as e:
-                    _LOGGER.warning("Exception in run loop", e)
-                    sleep(RECONNECT_DELAY)                
+                except:
+                    _LOGGER.warning("Exception in run loop")
+                    sleep(RECONNECT_DELAY)
             return not self._loop and self._measurements_counter > 0
 
     def _connect(self) -> bool:
@@ -105,19 +105,23 @@ class Device(object):
 
             if once and len(self._measurements) > 0:
                 self._loop = False
-        
+
         return (once and len(self._measurements) > 0) or not once
 
     def _handle_response(self, data):
         if data[0] != 0 and data[1] != 0 and data[2] != 0 and data[2] != 3:
-            _LOGGER.warning("Ignore data package because invalid prefix: %s" % data[0:3])
+            _LOGGER.warning(
+                "Ignore data package because invalid prefix: %s" % data[0:3]
+            )
             return
         data_length = data[4]
         if len(data) != data_length + 5:
             if len(data) > data_length:
                 additional_data = data[data_length : len(data)]
                 data = data[0:data_length]
-                _LOGGER.debug("Split into two data packages because additional data detected.")
+                _LOGGER.debug(
+                    "Split into two data packages because additional data detected."
+                )
                 self._handle_response(additional_data)
             else:
                 _LOGGER.warning(
@@ -148,7 +152,7 @@ class Device(object):
         pass
         _LOGGER.warning("Passcode resonse ignored")
 
-    def _handle_login_response(self, data):        
+    def _handle_login_response(self, data):
         pass
         _LOGGER.warning("Login resonse ignored")
 
@@ -160,7 +164,7 @@ class Device(object):
         else:
             pass
         _LOGGER.debug(meas)
-        
+
     def _handle_data_extended_response(self, data):
         pass
         _LOGGER.warning("Extended data ignored")
@@ -193,8 +197,12 @@ class Device(object):
     def close(self):
         self._socket.close()
 
-    def get_result(self):
-        return str(self.result)
+    def get_latest_measurement_and_empty(self):
+        if len(self._measurements) > 0:
+            m = self._measurements.pop()
+            self._measurements.clear()
+            return m
+        return None
 
     def __enter__(self):
         self.run()
@@ -202,6 +210,7 @@ class Device(object):
 
     def __exit__(self, type, value, traceback):
         self._socket.close()
+
 
 class Measurement:
     def __init__(self, data) -> None:
@@ -220,7 +229,10 @@ class Measurement:
         self.unknown2 = int.from_bytes(unknown2_raw, "big")
 
     def __str__(self) -> str:
-        return (
-            "pH: %s, Redox: %s, In-water: %s, pH-on: %s, Orp-on: %s"
-            % (self.ph, self.redox, self.in_water, self.ph_on, self.orp_on)
+        return "pH: %s, Redox: %s, In-water: %s, pH-on: %s, Orp-on: %s" % (
+            self.ph,
+            self.redox,
+            self.in_water,
+            self.ph_on,
+            self.orp_on,
         )
