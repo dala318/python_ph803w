@@ -197,7 +197,7 @@ class Device(object):
     def close(self):
         self._socket.close()
 
-    def get_latest_measurement_and_empty(self) -> Measurement:
+    def get_latest_measurement_and_empty(self):
         if len(self._measurements) > 0:
             m = self._measurements.pop()
             self._measurements.clear()
