@@ -24,68 +24,23 @@ class Hub:
 
     def __init__(self, hass: HomeAssistant, host: str) -> None:
         """Init dummy hub."""
+        # Discovery is not working in Home Assistant, could it be something to do with UDP broadcast?
         # discover = discovery.Discovery()
         # res = discover.run()
-        dev = device.Device(host)
-        res = dev.run()
-        # dev.close()
 
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect((host, PH803W_DEFAULT_TCP_PORT))
+        with device.Device(host) as d:
+            self.online = d.run(once=True)
+            result = d.get_latest_measurement_and_empty()
+            uid = d.passcode
 
-        data = bytes.fromhex("0000000303000006")
-        self.socket.sendall(data)
-        response = self.socket.recv(1024)
-        passcode_lenth = response[9]
-        passcode_raw = response[10 : 10 + passcode_lenth]
-        passcode = passcode_raw.decode("utf-8")
-
-        data = (
-            bytes.fromhex("000000030f00000800")
-            + passcode_lenth.to_bytes(1, "little")
-            + passcode_raw
-        )
-        self.socket.sendall(data)
-        response = self.socket.recv(1024)
-        if response[8] != 0:
-            print("Error connecting")
-
-        # Connection established, from now on some cyclig bahavior
-        data = bytes.fromhex("000000030400009002")
-        self.socket.sendall(data)
-        empty_counter = 0
-        data = bytes.fromhex("0000000303000015")
-        response = self.socket.recv(1024)
-        # if len(response) == 0:
-        #     empty_counter += 1
-        #     continue
-        empty_counter = 0
-        # print(response)
-        if len(response) == 18:
-            flag1 = response[8]
-            if flag1 & 0b0000_0100:
-                print("In water")
-            flag2 = response[9]
-            if flag2 & 0b0000_0010:
-                print("ORP on")
-            if flag2 & 0b0000_0001:
-                print("PH on")
-            # state_raw = response[8 : 9]
-            ph_raw = response[10:12]
-            self.ph = int.from_bytes(ph_raw, "big") * 0.01
-            redox_raw = response[12:14]
-            self.redox = int.from_bytes(redox_raw, "big") - 2000
-            unknown1_raw = response[14:16]
-            unknown1 = int.from_bytes(unknown1_raw, "big")
-            unknown2_raw = response[15:18]
-            unknown2 = int.from_bytes(unknown2_raw, "big")
+        if not self.online:
+            return
 
         self._host = host
         self._hass = hass
-        self._name = host
-        self._id = host.lower()
-        self.probe = Probe(f"{self._id}_1", f"{self._name} 1", self)
-        self.online = True
+        self._name = "pH-803w"
+        self._id = uid.lower()
+        self.probe = Probe(f"{self._id}", f"{self._name}", self, result)
 
     @property
     def hub_id(self) -> str:
@@ -94,20 +49,25 @@ class Hub:
 
     async def test_connection(self) -> bool:
         """Test connectivity to the Dummy hub is OK."""
-        await asyncio.sleep(1)
-        return True
+        with device.Device(self._host) as d:
+            return d.run(once=True)
 
 
 class Probe:
     """Dummy roller (device for HA) for Hello World example."""
 
-    def __init__(self, id: str, name: str, hub: Hub) -> None:
+    def __init__(
+        self, id: str, name: str, hub: Hub, result: device.Measurement
+    ) -> None:
         """Init dummy roller."""
         self._id = id
         self.hub = hub
         self.name = name
-        self._ph_value = hub.ph
-        self._orp_value = hub.redox
+        self._ph_value = result.ph
+        self._orp_value = result.redox
+        self._ph_on = result.ph_on
+        self._opp_on = result.orp_on
+        self._in_water = result.in_water
         self._callbacks = set()
         self._loop = asyncio.get_event_loop()
 
@@ -119,20 +79,6 @@ class Probe:
     def id(self) -> str:
         """Return ID for roller."""
         return self._id
-
-    # async def set_position(self, position: int) -> None:
-    #     """
-    #     Set dummy cover to the given position.
-
-    #     State is announced a random number of seconds later.
-    #     """
-    #     self._target_position = position
-
-    #     # Update the moving status, and broadcast the update
-    #     self.moving = position - 50
-    #     await self.publish_updates()
-
-    #     self._loop.create_task(self.delayed_update())
 
     async def delayed_update(self) -> None:
         """Publish updates, with a random delay to emulate interaction with device."""
@@ -166,10 +112,10 @@ class Probe:
 
     @property
     def ph(self) -> float:
-        """Battery level as a percentage."""
+        """Return the pH measurement."""
         return self._ph_value
 
     @property
     def orp(self) -> float:
-        """Return a random voltage roughly that of a 12v battery."""
+        """Return the ORP measurement."""
         return self._orp_value

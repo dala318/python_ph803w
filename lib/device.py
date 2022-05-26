@@ -105,7 +105,7 @@ class Device(object):
 
             if once and len(self._measurements) > 0:
                 self._loop = False
-
+        self.close()
         return (once and len(self._measurements) > 0) or not once
 
     def _handle_response(self, data):
@@ -195,7 +195,10 @@ class Device(object):
         self._loop = False
 
     def close(self):
-        self._socket.close()
+        try:
+            self._socket.close()
+        except:
+            pass
 
     def get_latest_measurement_and_empty(self):
         if len(self._measurements) > 0:
@@ -205,11 +208,10 @@ class Device(object):
         return None
 
     def __enter__(self):
-        self.run()
         return self
 
     def __exit__(self, type, value, traceback):
-        self._socket.close()
+        self.close()
 
 
 class Measurement:

@@ -86,8 +86,6 @@ class PhProbeSensor(SensorBase):
         # The name of the entity
         self._attr_name = f"{self._probe.name} pH"
 
-        self._state = 7.2
-
     @property
     def state(self):
         """Return the state of the sensor."""
