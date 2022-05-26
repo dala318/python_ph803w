@@ -1,7 +1,10 @@
 import socket
 import asyncio
+import logging
 
 PH803W_UDP_PORT = 12414
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class DiscoveryError(ConnectionError):
@@ -27,28 +30,30 @@ class Discovery(object):
         # Send dicovery request broadcast
         data = bytes.fromhex("0000000303000003")
         self._socket.sendto(data, ("<broadcast>", PH803W_UDP_PORT))
-        # print("Sent request message!")
+        self._socket.settimeout(2)
+        _LOGGER.debug("Sent request message!")
 
         # Receive device reaponse to discovery
         data, remote = self._socket.recvfrom(1024)
         if data[0] != 0 and data[1] != 0 and data[2] != 0 and data[2] != 3:
-            # print('Ignore data package because invalid prefix: %s' % data[0:3])
+            _LOGGER.error('Ignore data package because invalid prefix: %s' % data[0:3])
             raise DiscoveryError("Ignore data package because invalid prefix")
         data_length = data[4]
         if len(data) != data_length + 5:
-            # print('Ignore data package because invalid length(%s): %s' % (data_length, data))
+            _LOGGER.error('Ignore data package because invalid length(%s): %s' % (data_length, data))
             raise DiscoveryError("Ignore data package because invalid length")
         if data[7] == 3:
+            _LOGGER.error("Unknown response message type")
             raise DiscoveryError("Unknown response message type")
         if data[7] != 4:
-            # print("Ignore data package because invalid message type ${data[7]}")
+            _LOGGER.error("Ignore data package because invalid message type ${data[7]}")
             raise DiscoveryError("Ignore data package because invalid message type")
 
         # Parsing result of correct type
-        # print(
-        #     "Parsing discovered device: %s: %s - %s" % (remote[0], remote[1], data[7:])
-        # )
-        self.device = Device(remote[0], data)
+        _LOGGER.info(
+            "Parsing discovered device: %s: %s - %s" % (remote[0], remote[1], data[7:])
+        )
+        self.device = DeviceDiscovery(remote[0], data)
 
     def close(self):
         self._socket.close()
@@ -64,9 +69,17 @@ class Discovery(object):
         self.close()
 
 
-class Device:
+class DeviceDiscovery:
     def __init__(self, ip: str, data):
         self.ip = ip
+
+        if data is None:
+            _LOGGER.info("Initializing empty device with ip:%s" % ip)
+            self.id1 = ""
+            self.id2 = ""
+            self.api_server = ""
+            self.version_server = ""
+            return
 
         id1_length = data[9]
         id1_raw = data[10 : 10 + id1_length]
