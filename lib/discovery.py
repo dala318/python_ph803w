@@ -68,7 +68,7 @@ class Discovery(object):
         version_raw = data[idx_start: idx]
         self.result['result']['version_server'] = version_raw.decode("utf-8")
 
-        self.result['status'] = ['success']
+        self.result['status'] = ['Success']
 
     def close(self):
         self.socket.close()
@@ -82,13 +82,3 @@ class Discovery(object):
 
     def __exit__(self, type, value, traceback):
         self.close()
-
-if __name__ == '__main__':
-    with Discovery() as d:
-        print(d.get_result())
-
-    loop = asyncio.get_event_loop()
-    discovery = Discovery()
-    loop.run_until_complete(discovery.run_async())
-    print(discovery.get_result())
-    loop.close()

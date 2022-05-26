@@ -28,6 +28,7 @@ class Device(object):
         passcode_lenth = response[9]
         passcode_raw = response[10 : 10 + passcode_lenth]
         passcode = passcode_raw.decode("utf-8")
+        print(passcode)
 
         data = bytes.fromhex('000000030f00000800') + passcode_lenth.to_bytes(1, 'little') + passcode_raw
         self.socket.sendall(data)
@@ -146,14 +147,3 @@ class Device(object):
 
     def __exit__(self, type, value, traceback):
         self.socket.close()
-
-
-if __name__ == '__main__':
-    #with Device('192.168.1.89') as d:
-    #    print(d.get_result())
-
-    loop = asyncio.get_event_loop()
-    device = Device('192.168.1.89')
-    loop.run_until_complete(device.run_async())
-    print(device.get_result())
-    loop.close()

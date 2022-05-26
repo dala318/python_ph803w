@@ -8,6 +8,10 @@ loop.run_until_complete(discover.run_async())
 result = discover.get_result()
 print(result)
 
+if result['status'][0] != 'Success':
+    print(result)
+    exit(1)
+
 dev = device.Device(result['result']['ip'])
 # listener = loop.create_task(dev.run_async())
 # asyncio.wait([listener])
