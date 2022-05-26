@@ -5,6 +5,7 @@ if __name__ == '__main__':
     import logging
 
     logging.basicConfig(level=logging.DEBUG)
+    _LOGGER = logging.getLogger(__name__)
 
     loop = asyncio.get_event_loop()
 
@@ -12,7 +13,7 @@ if __name__ == '__main__':
         disc = discovery.Discovery()
         loop.run_until_complete(disc.run_async())
         result = disc.get_result()
-        print(result)
+        _LOGGER.debug(result)
     except:
         result = discovery.DeviceDiscovery('192.168.1.89', None)
 

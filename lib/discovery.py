@@ -102,3 +102,6 @@ class DeviceDiscovery:
             idx += 1
         version_raw = data[idx_start:idx]
         self.version_server = version_raw.decode("utf-8")
+
+    def __str__(self) -> str:
+        return "Devive Discovery: ip: %s" % self.ip
