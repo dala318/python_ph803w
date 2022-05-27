@@ -17,10 +17,11 @@ if __name__ == '__main__':
     except:
         result = discovery.DeviceDiscovery('192.168.1.89', None)
 
-    dev = device.Device(result.ip)
-    # listener = loop.create_task(dev.run_async())
-    # asyncio.wait([listener])
-    loop.run_until_complete(dev.run_async(once=False))
-    #print(dev.get_result())
+    while True:
+        try:
+            with device.Device(result.ip) as dev:
+                loop.run_until_complete(dev.run_async(once=False))
+        except:
+            _LOGGER.error("Exception in run loop, restarting...")
 
     loop.close()

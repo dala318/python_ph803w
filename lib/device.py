@@ -8,7 +8,7 @@ PH803W_DEFAULT_TCP_PORT = 12416
 PH803W_PING_INTERVAL = 4
 RECONNECT_DELAY = 10
 # RESPONSE_TIMEOUT = 5000
-ABORT_AFTER_CONSECUTIVE_EMPTY = 10
+ABORT_AFTER_CONSECUTIVE_EMPTY = 30
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,7 +22,6 @@ class Device(object):
         self.host = host
         self.passcode = ""
         self._measurements = []
-        self._measurements_counter = 0
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._loop = True
         self._empty_counter = 0
@@ -36,20 +35,9 @@ class Device(object):
             self._connect()
             return self._run(once)
         else:
-            measurements = -1
-            while self._loop:
-                if measurements == self._measurements_counter:
-                    _LOGGER.error("Aborting reconnects, no new measurements")
-                    break
-                measurements = self._measurements_counter
-                self._connect()
-                try:
-                    self._run(once)
-                except:
-                    _LOGGER.warning("Exception in run loop")
-                    self.close()
-                    sleep(RECONNECT_DELAY)
-            return not self._loop and self._measurements_counter > 0
+            self._connect()
+            self._run(once)
+            return not self._loop
 
     def _connect(self) -> bool:
         self._loop = True
@@ -99,8 +87,9 @@ class Device(object):
                 _LOGGER.error("Too many empty consecutive packages")
                 raise DeviceError("Too many empty consecutive packages")
             if len(response) == 0:
-                _LOGGER.debug(self._empty_bar() + "Empty message received")
                 self._empty_counter += 1
+                if self._empty_counter % 10 == 0:
+                    _LOGGER.warning("%s %s empty messages received" % (self._empty_bar(), self._empty_counter))
                 continue
             self._empty_counter = 0
 
@@ -165,10 +154,9 @@ class Device(object):
         if len(data) == 18:
             meas = Measurement(data)
             self._measurements.append(meas)
-            self._measurements_counter += 1
         else:
             pass
-        _LOGGER.debug(self._empty_bar() +  str(meas))
+        _LOGGER.debug(meas)
 
     def _handle_data_extended_response(self, data):
         pass
@@ -180,17 +168,17 @@ class Device(object):
         #     pass
         # else:
         #     _LOGGER.debug("Pong thread alredy running")
-        _LOGGER.debug(self._empty_bar() + "Pong message received")
+        _LOGGER.debug("Pong message received")
 
     def _send_ping(self):
         pong_data = bytes.fromhex("0000000303000015")
         self._socket.sendall(pong_data)
-        _LOGGER.debug(self._empty_bar() + "Ping sent")
+        _LOGGER.debug("Ping sent")
 
     def _ping_loop(self):
         while self._loop:
-            sleep(PH803W_PING_INTERVAL)
             self._send_ping()
+            sleep(PH803W_PING_INTERVAL)
 
     # async def _async_queue_ping(self):
     #     await asyncio.sleep(PH803W_PING_INTERVAL)
@@ -200,6 +188,7 @@ class Device(object):
         self._loop = False
 
     def close(self):
+        self._loop = False
         try:
             self._socket.close()
         except:
