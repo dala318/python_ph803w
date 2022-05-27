@@ -47,6 +47,7 @@ class Device(object):
                     self._run(once)
                 except:
                     _LOGGER.warning("Exception in run loop")
+                    self.close()
                     sleep(RECONNECT_DELAY)
             return not self._loop and self._measurements_counter > 0
 
@@ -98,6 +99,7 @@ class Device(object):
                 _LOGGER.error("Too many empty consecutive packages")
                 raise DeviceError("Too many empty consecutive packages")
             if len(response) == 0:
+                _LOGGER.debug(self._empty_bar() + "Empty message received")
                 self._empty_counter += 1
                 continue
             self._empty_counter = 0
@@ -108,6 +110,11 @@ class Device(object):
                 self._loop = False
         self.close()
         return (once and len(self._measurements) > 0) or not once
+
+    def _empty_bar(self) -> str:
+        empty_filled = int(self._empty_counter * 10 / ABORT_AFTER_CONSECUTIVE_EMPTY)
+        empty_clear = 10 - empty_filled
+        return "[" + ("#" * empty_filled) + (" " * empty_clear) + "]"
 
     def _handle_response(self, data):
         if data[0] != 0 and data[1] != 0 and data[2] != 0 and data[2] != 3:
@@ -144,10 +151,7 @@ class Device(object):
             self._handle_data_extended_response(data)
         else:
             pass
-            _LOGGER.warning(
-                "Ignore data package because invalid message type %s: %s"
-                % (message_type, data)
-            )
+            _LOGGER.warning("Ignore data package because invalid message type %s" % message_type)
 
     def _handle_passcode_response(self, data):
         pass
@@ -164,7 +168,7 @@ class Device(object):
             self._measurements_counter += 1
         else:
             pass
-        _LOGGER.debug(meas)
+        _LOGGER.debug(self._empty_bar() +  str(meas))
 
     def _handle_data_extended_response(self, data):
         pass
@@ -176,12 +180,12 @@ class Device(object):
         #     pass
         # else:
         #     _LOGGER.debug("Pong thread alredy running")
-        _LOGGER.debug("Pong message received")
+        _LOGGER.debug(self._empty_bar() + "Pong message received")
 
     def _send_ping(self):
         pong_data = bytes.fromhex("0000000303000015")
         self._socket.sendall(pong_data)
-        _LOGGER.debug("Ping sent")
+        _LOGGER.debug(self._empty_bar() + "Ping sent")
 
     def _ping_loop(self):
         while self._loop:
