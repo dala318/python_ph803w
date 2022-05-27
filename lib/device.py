@@ -27,6 +27,13 @@ class Device(object):
         self._empty_counter = 0
         self._pong_thread = None
 
+    def reset_socket(self):
+        try:
+            self._socket.close()
+        except:
+            pass
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
     async def run_async(self, once: bool = True) -> bool:
         return self.run(once)
 
@@ -89,7 +96,10 @@ class Device(object):
             if len(response) == 0:
                 self._empty_counter += 1
                 if self._empty_counter % 10 == 0:
-                    _LOGGER.warning("%s %s empty messages received" % (self._empty_bar(), self._empty_counter))
+                    _LOGGER.warning(
+                        "%s %s empty messages received"
+                        % (self._empty_bar(), self._empty_counter)
+                    )
                 continue
             self._empty_counter = 0
 
@@ -140,7 +150,9 @@ class Device(object):
             self._handle_data_extended_response(data)
         else:
             pass
-            _LOGGER.warning("Ignore data package because invalid message type %s" % message_type)
+            _LOGGER.warning(
+                "Ignore data package because invalid message type %s" % message_type
+            )
 
     def _handle_passcode_response(self, data):
         pass
@@ -154,6 +166,8 @@ class Device(object):
         if len(data) == 18:
             meas = Measurement(data)
             self._measurements.append(meas)
+            if len(self._measurements) > 100:
+                self._measurements.pop(0)
         else:
             pass
         _LOGGER.debug(meas)
