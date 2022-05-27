@@ -231,17 +231,17 @@ class Measurement:
         self.ph_on = flag2 & 0b0000_0001 != 0
         ph_raw = data[10:12]
         self.ph = int.from_bytes(ph_raw, "big") * 0.01
-        redox_raw = data[12:14]
-        self.redox = int.from_bytes(redox_raw, "big") - 2000
+        orp_raw = data[12:14]
+        self.orp = int.from_bytes(orp_raw, "big") - 2000
         unknown1_raw = data[14:16]
         self.unknown1 = int.from_bytes(unknown1_raw, "big")
         unknown2_raw = data[15:18]
         self.unknown2 = int.from_bytes(unknown2_raw, "big")
 
     def __str__(self) -> str:
-        return "pH: %s, Redox: %s, In-water: %s, pH-on: %s, Orp-on: %s" % (
+        return "pH: %s, Orp: %s, In-water: %s, pH-on: %s, Orp-on: %s" % (
             self.ph,
-            self.redox,
+            self.orp,
             self.in_water,
             self.ph_on,
             self.orp_on,

@@ -1,13 +1,11 @@
 {
     "domain": "ph803w",
     "name": "API polling for PH-803W pH and ORP sensor",
-    "config_flow": true,
     "documentation": "https://github.com/dala318/python_ph803w",
-    "issue_tracker": "https://github.com/dala318/python_ph803w/issues",
     "version": "0.0.1",
     "dependencies": [],
     "after_dependencies": [],
-    "iot_class": "local_push",
+    "iot_class": "local_polling",
     "codeowners": ["@dala318"],
     "requirements": []
   }
