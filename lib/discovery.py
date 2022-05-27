@@ -1,3 +1,4 @@
+"""A PH-803W device discovery client."""
 import socket
 import asyncio
 import logging

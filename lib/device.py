@@ -1,3 +1,4 @@
+"""A PH-803W device value collector."""
 import threading
 import socket
 import logging
