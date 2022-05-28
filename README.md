@@ -6,14 +6,14 @@ In desktop mode (running cyclic with lib/main.py) it performs a bit better.
 
 ## Installation of HA component
 
-1. Clone this repo as `ph803w` dir into `$HA_CONFIG_DIR/custom_components/`:
+1. Clone this repo as `ph803w` dir into `$HA_CONFIG_DIR/custom_components/`
    ```
    $ cd custom_components
    $ git clone git@github.com:dala318/ph803w.git ./ph803w
    ```
-2. Setup `$HA_CONFIG_DIR/configuration.yaml`:
+2. Setup `$HA_CONFIG_DIR/configuration.yaml`
 
 ```yaml
 ph803w:
-  host: 192.168.1.2    # IP of your gateway
+  host: 192.168.1.2    # IP of your device
 ```
