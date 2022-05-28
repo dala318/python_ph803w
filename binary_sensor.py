@@ -2,13 +2,10 @@
 from __future__ import annotations
 import logging
 
-from homeassistant.components.sensor import (
+from homeassistant.components.binary_sensor import (
     ENTITY_ID_FORMAT,
-    SensorDeviceClass,
-    SensorEntity,
-)
-from homeassistant.const import (
-    ELECTRIC_POTENTIAL_MILLIVOLT,
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
@@ -22,7 +19,7 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
-class DeviceSensorConfig:
+class BinaryDeviceSensorConfig:
     """PH-803W Device Sensor configuration."""
 
     def __init__(
@@ -42,13 +39,26 @@ class DeviceSensorConfig:
 
 
 SENSORS = [
-    DeviceSensorConfig("PH-803W pH", "ph", "mdi:water-percent", ""),
-    DeviceSensorConfig(
-        "PH-803W ORP",
-        "orp",
-        "mdi:water-opacity",
-        ELECTRIC_POTENTIAL_MILLIVOLT,
-        SensorDeviceClass.VOLTAGE,
+    BinaryDeviceSensorConfig(
+        "PH-803W In water",
+        "in_water",
+        "mdi:water-check",
+        "",
+        BinarySensorDeviceClass.CONNECTIVITY,
+    ),
+    BinaryDeviceSensorConfig(
+        "PH-803W pH switch on",
+        "ph_on",
+        "mdi:water-plus",
+        "",
+        BinarySensorDeviceClass.RUNNING,
+    ),
+    BinaryDeviceSensorConfig(
+        "PH-803W ORP switch on",
+        "orp_on",
+        "mdi:water-plus",
+        "",
+        BinarySensorDeviceClass.RUNNING,
     ),
 ]
 
@@ -71,7 +81,7 @@ def setup_platform(
     add_entities(sensors)
 
 
-class DeviceSensor(SensorEntity):
+class DeviceSensor(BinarySensorEntity):
     """Implementing the Waterfurnace sensor."""
 
     def __init__(self, device_data, config):
@@ -114,7 +124,7 @@ class DeviceSensor(SensorEntity):
         return self.device_data.device_client.passcode + self._attr
 
     @property
-    def native_value(self):
+    def is_on(self):
         """Return the state of the sensor."""
         return self._state
 

@@ -27,6 +27,7 @@ class Device(object):
         self._loop = True
         self._empty_counter = 0
         self._pong_thread = None
+        self._callbacks = []
 
     def reset_socket(self):
         try:
@@ -51,6 +52,12 @@ class Device(object):
             self._connect()
             self._run(once)
             return not self._loop
+
+    def register_callback(self, callback_function):
+        self._callbacks.append(callback_function)
+
+    def get_unique_name(self) -> str:
+        return "PH-803W_%s" % self.passcode
 
     def _connect(self) -> bool:
         self._loop = True
@@ -176,6 +183,8 @@ class Device(object):
             self._latest_measurement = meas
             if len(self._measurements) > 100:
                 self._measurements.pop(0)
+            for callback in self._callbacks:
+                callback()
         else:
             pass
         _LOGGER.debug(meas)

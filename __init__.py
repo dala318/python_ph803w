@@ -49,20 +49,20 @@ def setup(hass: HomeAssistant, base_config: ConfigType) -> bool:
 
     host = config[CONF_HOST]
 
-    ph_device = device.Device(host)
+    device_client = device.Device(host)
     try:
-        if not ph_device.run(once=True):
+        if not device_client.run(once=True):
             _LOGGER.error("Device found but no measuremetn was received")
             return False
     except TimeoutError:
         _LOGGER.error("Could no connect ot device")
         return False
 
-    hass.data[DOMAIN] = DeviceData(hass, ph_device)
+    hass.data[DOMAIN] = DeviceData(hass, device_client)
     hass.data[DOMAIN].start()
 
     discovery.load_platform(hass, Platform.SENSOR, DOMAIN, {}, config)
-    # discovery.load_platform(hass, Platform.BINARY_SENSOR, DOMAIN, {}, config)
+    discovery.load_platform(hass, Platform.BINARY_SENSOR, DOMAIN, {}, config)
     return True
 
 
@@ -74,12 +74,13 @@ class DeviceData(threading.Thread):
     for every new data, could work for the pH and ORP data but for the
     switches a more direct feedback is wanted."""
 
-    def __init__(self, hass, client: device.Device) -> None:
+    def __init__(self, hass, device_client: device.Device) -> None:
         super().__init__()
         self.name = "Ph803wThread"
         self.hass = hass
-        self.client = client
-        self.unit = self.client.host
+        self.device_client = device_client
+        self.device_client.register_callback(self.dispatcher_new_data)
+        self.host = self.device_client.host
         self._shutdown = False
         self._fails = 0
 
@@ -94,7 +95,7 @@ class DeviceData(threading.Thread):
                 """Shutdown the thread."""
                 _LOGGER.debug("Signaled to shutdown")
                 self._shutdown = True
-                self.client.abort()
+                self.device_client.abort()
                 self.join()
 
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, shutdown)
@@ -124,14 +125,19 @@ class DeviceData(threading.Thread):
                 return
 
             try:
-                self.client.run(once=False)
+                self.device_client.run(once=False)
             except device.DeviceError:
                 _LOGGER.exception("Failed to read data, attempting to recover")
-                self.client.close()
+                self.device_client.close()
                 self._fails += 1
                 sleep_time = self._fails * ERROR_INTERVAL.total_seconds()
                 _LOGGER.debug(
                     "Sleeping for fail #%s, in %s seconds", self._fails, sleep_time
                 )
-                self.client.reset_socket()
+                self.device_client.reset_socket()
                 time.sleep(sleep_time)
+
+    @callback
+    def dispatcher_new_data(self):
+        """Noyifying HASS that new data is ready to read."""
+        dispatcher_send(self.hass, UPDATE_TOPIC)
