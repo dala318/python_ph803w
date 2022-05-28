@@ -1,5 +1,6 @@
 """Platform for sensor integration."""
 from __future__ import annotations
+import logging
 
 from homeassistant.components.sensor import (
     ENTITY_ID_FORMAT,
@@ -17,6 +18,8 @@ from homeassistant.util import slugify
 
 from . import UPDATE_TOPIC
 from .const import DOMAIN
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class DeviceSensorConfig:
@@ -39,7 +42,7 @@ class DeviceSensorConfig:
 
 
 SENSORS = [
-    DeviceSensorConfig("pH Sensor", "ph", "mdi:water-percent"),
+    DeviceSensorConfig("pH Sensor", "ph", "mdi:water-percent", ""),
     DeviceSensorConfig(
         "ORP Sensor",
         "orp",
@@ -77,6 +80,10 @@ class DeviceSensor(SensorEntity):
         self._name = config.friendly_name
         self._attr = config.field
         self._state = None
+        if self.client.client.get_latest_measurement() is not None:
+            self._state = getattr(
+                self.client.client.get_latest_measurement(), self._attr, None
+            )
         self._icon = config.icon
         self._unit_of_measurement = config.unit_of_measurement
         self._attr_device_class = config.device_class
@@ -122,8 +129,9 @@ class DeviceSensor(SensorEntity):
     @callback
     def async_update_callback(self):
         """Update state."""
-        if self.client.data is not None:
+        _LOGGER.info("Read sensor data: %s" % self.client.get_latest_measurement())
+        if self.client.client.get_latest_measurement() is not None:
             self._state = getattr(
-                self.client.get_latest_measurement_and_empty(), self._attr, None
+                self.client.client.get_latest_measurement(), self._attr, None
             )
             self.async_write_ha_state()

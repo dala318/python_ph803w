@@ -62,7 +62,7 @@ def setup(hass: HomeAssistant, base_config: ConfigType) -> bool:
     hass.data[DOMAIN].start()
 
     discovery.load_platform(hass, Platform.SENSOR, DOMAIN, {}, config)
-    discovery.load_platform(hass, Platform.BINARY_SENSOR, DOMAIN, {}, config)
+    # discovery.load_platform(hass, Platform.BINARY_SENSOR, DOMAIN, {}, config)
     return True
 
 
@@ -76,40 +76,12 @@ class DeviceData(threading.Thread):
 
     def __init__(self, hass, client: device.Device) -> None:
         super().__init__()
+        self.name = "Ph803wThread"
         self.hass = hass
         self.client = client
         self.unit = self.client.host
         self._shutdown = False
         self._fails = 0
-
-    # def _reconnect(self):
-    #     """Reconnect on a failure."""
-
-    #     self._fails += 1
-    #     if self._fails > MAX_FAILS:
-    #         _LOGGER.error("Failed to reconnect. Thread stopped")
-    #         persistent_notification.create(
-    #             self.hass,
-    #             "Error:<br/>Connection to PH-803W device failed "
-    #             "the maximum number of times. Thread has stopped",
-    #             title=NOTIFICATION_TITLE,
-    #             notification_id=NOTIFICATION_ID,
-    #         )
-
-    #         self._shutdown = True
-    #         return
-
-    #     # sleep first before the reconnect attempt
-    #     _LOGGER.debug("Sleeping for fail # %s", self._fails)
-    #     time.sleep(self._fails * ERROR_INTERVAL.total_seconds())
-
-    #     try:
-    #         self.client.run(once=False)
-    #     except:
-    #         _LOGGER.exception("Failed to reconnect attempt %s", self._fails)
-    #     else:
-    #         _LOGGER.debug("Reconnected to device")
-    #         self._fails = 0
 
     def run(self):
         """Thread run loop."""
@@ -163,46 +135,3 @@ class DeviceData(threading.Thread):
                 )
                 self.client.reset_socket()
                 time.sleep(sleep_time)
-
-        # while True:
-        #     if self._shutdown:
-        #         _LOGGER.debug("Graceful shutdown")
-        #         return
-
-        #     try:
-        #         self.data = self.client.run(once=False)
-
-        #     except WFException:
-        #         # WFExceptions are things the WF library understands
-        #         # that pretty much can all be solved by logging in and
-        #         # back out again.
-        #         _LOGGER.exception("Failed to read data, attempting to recover")
-        #         self._reconnect()
-
-        #     else:
-        #         dispatcher_send(self.hass, UPDATE_TOPIC)
-        #         time.sleep(SCAN_INTERVAL.total_seconds())
-
-
-# async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-#     """Set up Hello World from a config entry."""
-#     # Store an instance of the "connecting" class that does the work of speaking
-#     # with your actual devices.
-#     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = hub.Hub(hass, entry.data["host"])
-
-#     # This creates each HA object for each platform your device requires.
-#     # It's done by calling the `async_setup_entry` function in each platform module.
-#     hass.config_entries.async_setup_platforms(entry, PLATFORMS)
-#     return True
-
-
-# async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-#     """Unload a config entry."""
-#     # This is called when an entry/configured device is to be removed. The class
-#     # needs to unload itself, and remove callbacks. See the classes for further
-#     # details
-#     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-#     if unload_ok:
-#         hass.data[DOMAIN].pop(entry.entry_id)
-
-#     return unload_ok

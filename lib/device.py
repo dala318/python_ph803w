@@ -22,6 +22,7 @@ class Device(object):
         self.host = host
         self.passcode = ""
         self._measurements = []
+        self._latest_measurement = None
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._loop = True
         self._empty_counter = 0
@@ -38,10 +39,15 @@ class Device(object):
         return self.run(once)
 
     def run(self, once: bool = True) -> bool:
+        self._loop = True
         if once:
+            if self._socket.fileno() == -1:
+                self.reset_socket()
             self._connect()
             return self._run(once)
         else:
+            if self._socket.fileno() == -1:
+                self.reset_socket()
             self._connect()
             self._run(once)
             return not self._loop
@@ -165,7 +171,9 @@ class Device(object):
     def _handle_data_response(self, data):
         if len(data) == 18:
             meas = Measurement(data)
+            _LOGGER.debug("Adding result: %s" % meas)
             self._measurements.append(meas)
+            self._latest_measurement = meas
             if len(self._measurements) > 100:
                 self._measurements.pop(0)
         else:
@@ -208,12 +216,13 @@ class Device(object):
         except:
             pass
 
-    def get_latest_measurement_and_empty(self):
-        if len(self._measurements) > 0:
-            m = self._measurements.pop()
-            self._measurements.clear()
-            return m
-        return None
+    def get_measurements_and_empty(self):
+        meas = self._measurements
+        self._measurements.clear()
+        return meas
+
+    def get_latest_measurement(self):
+        return self._latest_measurement
 
     def __enter__(self):
         return self
