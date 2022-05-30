@@ -37,20 +37,24 @@ class Discovery(object):
         # Receive device reaponse to discovery
         data, remote = self._socket.recvfrom(1024)
         if data[0] != 0 and data[1] != 0 and data[2] != 0 and data[2] != 3:
-            _LOGGER.error("Ignore data package because invalid prefix: %s" % data[0:3])
+            _LOGGER.warning(
+                "Ignore data package because invalid prefix: %s" % data[0:3]
+            )
             raise DiscoveryError("Ignore data package because invalid prefix")
         data_length = data[4]
         if len(data) != data_length + 5:
-            _LOGGER.error(
+            _LOGGER.warning(
                 "Ignore data package because invalid length(%s): %s"
                 % (data_length, data)
             )
             raise DiscoveryError("Ignore data package because invalid length")
         if data[7] == 3:
-            _LOGGER.error("Unknown response message type")
+            _LOGGER.warning("Unknown response message type")
             raise DiscoveryError("Unknown response message type")
         if data[7] != 4:
-            _LOGGER.error("Ignore data package because invalid message type ${data[7]}")
+            _LOGGER.warning(
+                "Ignore data package because invalid message type ${data[7]}"
+            )
             raise DiscoveryError("Ignore data package because invalid message type")
 
         # Parsing result of correct type
