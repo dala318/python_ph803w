@@ -23,8 +23,6 @@ from homeassistant.helpers.typing import ConfigType
 _LOGGER = logging.getLogger(__name__)
 
 UPDATE_TOPIC = f"{DOMAIN}_update"
-SCAN_INTERVAL = timedelta(seconds=10)
-ERROR_INTERVAL = timedelta(seconds=300)
 ERROR_ITERVAL_MAPPING = [10, 60, 300, 600, 3000, 6000]
 NOTIFICATION_ID = "ph803w_device_notification"
 NOTIFICATION_TITLE = "PH-803W Device status"
