@@ -164,17 +164,14 @@ class Device(object):
         elif message_type == 0x94:
             self._handle_data_extended_response(data)
         else:
-            pass
             _LOGGER.warning(
                 "Ignore data package because invalid message type %s" % message_type
             )
 
     def _handle_passcode_response(self, data):
-        pass
         _LOGGER.warning("Passcode resonse ignored")
 
     def _handle_login_response(self, data):
-        pass
         _LOGGER.warning("Login resonse ignored")
 
     def _handle_data_response(self, data):
@@ -194,20 +191,12 @@ class Device(object):
                 self._measurements.pop(0)
             for callback in self._callbacks:
                 callback()
-        else:
-            pass
-        _LOGGER.debug(meas)
+            _LOGGER.debug(meas)
 
     def _handle_data_extended_response(self, data):
-        pass
         _LOGGER.warning("Extended data ignored")
 
     def _handle_ping_pong_response(self):
-        # if self._pong_thread is None or self._pong_thread.done:
-        #     self._pong_thread = asyncio.create_task(self._async_queue_ping())
-        #     pass
-        # else:
-        #     _LOGGER.debug("Pong thread alredy running")
         _LOGGER.debug("Pong message received")
 
     def _send_ping(self):
@@ -219,10 +208,6 @@ class Device(object):
         while self._loop:
             self._send_ping()
             sleep(PH803W_PING_INTERVAL)
-
-    # async def _async_queue_ping(self):
-    #     await asyncio.sleep(PH803W_PING_INTERVAL)
-    #     self._send_ping()
 
     def abort(self):
         self._loop = False
@@ -254,7 +239,7 @@ class MeasOutlierFilter:
         self._ph_filter = OutlierFilter(ph, history)
         self._orp_filter = OutlierFilter(orp, history)
 
-    def add(self, ph, orp):
+    def add(self, ph: float, orp: float) -> None:
         self._ph_filter.add(ph)
         self._orp_filter.add(orp)
 
@@ -271,7 +256,7 @@ class OutlierFilter:
         self._values.append(init_value)
         self._history = history
 
-    def add(self, value):
+    def add(self, value: float) -> None:
         self._values.append(value)
         if len(self._values) > self._history:
             self._values.pop(0)
@@ -284,9 +269,9 @@ class OutlierFilter:
                 if (val <= mean_val + stddev_val) and (val >= mean_val - stddev_val):
                     return val
         except StatisticsError:
-            return self._values[0]
+            return self._values[-1]
         _LOGGER.error("No match in outlier filter shall never happen!")
-        return None
+        return self._values[-1]
 
 
 class Measurement:
@@ -298,25 +283,21 @@ class Measurement:
         self.ph_on = flag2 & 0b0000_0001 != 0
         ph_raw = data[10:12]
         self.ph = int.from_bytes(ph_raw, "big") * 0.01
-        self.ph_filt = None
         orp_raw = data[12:14]
         self.orp = int.from_bytes(orp_raw, "big") - 2000
-        self.orp_filt = None
         unknown1_raw = data[14:16]
         self.unknown1 = int.from_bytes(unknown1_raw, "big")
         unknown2_raw = data[15:18]
         self.unknown2 = int.from_bytes(unknown2_raw, "big")
 
-    def add_filtered(self, ph_filt, orp_filt):
-        self.ph_filt = ph_filt
-        self.orp_filt = orp_filt
+    def add_filtered(self, ph_filt: float, orp_filt: float) -> None:
+        self.ph = ph_filt
+        self.orp = orp_filt
 
     def __str__(self) -> str:
-        return "pH: %s (%s), Orp: %s (%s), In-water: %s, pH-on: %s, Orp-on: %s" % (
+        return "pH: %s, Orp: %s, In-water: %s, pH-on: %s, Orp-on: %s" % (
             self.ph,
-            self.ph_filt,
             self.orp,
-            self.orp_filt,
             self.in_water,
             self.ph_on,
             self.orp_on,

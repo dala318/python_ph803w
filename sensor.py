@@ -42,10 +42,10 @@ class DeviceSensorConfig:
 
 
 SENSORS = [
-    DeviceSensorConfig("PH-803W pH", "ph_filt", "mdi:water-percent", ""),
+    DeviceSensorConfig("PH-803W pH", "ph", "mdi:water-percent", ""),
     DeviceSensorConfig(
         "PH-803W ORP",
-        "orp_filt",
+        "orp",
         "mdi:water-opacity",
         ELECTRIC_POTENTIAL_MILLIVOLT,
         SensorDeviceClass.VOLTAGE,
