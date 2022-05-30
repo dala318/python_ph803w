@@ -23,9 +23,7 @@ from homeassistant.helpers.typing import ConfigType
 _LOGGER = logging.getLogger(__name__)
 
 UPDATE_TOPIC = f"{DOMAIN}_update"
-SCAN_INTERVAL = timedelta(seconds=10)
-ERROR_INTERVAL = timedelta(seconds=300)
-MAX_FAILS = 10
+ERROR_ITERVAL_MAPPING = [10, 60, 300, 600, 3000, 6000]
 NOTIFICATION_ID = "ph803w_device_notification"
 NOTIFICATION_TITLE = "PH-803W Device status"
 
@@ -80,6 +78,7 @@ class DeviceData(threading.Thread):
         self.hass = hass
         self.device_client = device_client
         self.device_client.register_callback(self.dispatcher_new_data)
+        self.device_client.register_callback(self.reset_fail_counter)
         self.host = self.device_client.host
         self._shutdown = False
         self._fails = 0
@@ -113,29 +112,25 @@ class DeviceData(threading.Thread):
                 _LOGGER.debug("Graceful shutdown")
                 return
 
-            if self._fails > MAX_FAILS:
-                _LOGGER.error("Failed to reconnect. Thread stopped")
-                persistent_notification.create(
-                    self.hass,
-                    "Error:<br/>Connection to PH-803W device failed "
-                    "the maximum number of times. Thread has stopped",
-                    title=NOTIFICATION_TITLE,
-                    notification_id=NOTIFICATION_ID,
-                )
-                return
-
             try:
                 self.device_client.run(once=False)
-            except (device.DeviceError, RecursionError):
+            except (device.DeviceError, RecursionError, ConnectionError):
                 _LOGGER.exception("Failed to read data, attempting to recover")
                 self.device_client.close()
                 self._fails += 1
-                sleep_time = self._fails * ERROR_INTERVAL.total_seconds()
+                error_mapping = self._fails
+                if error_mapping >= len(ERROR_ITERVAL_MAPPING):
+                    error_mapping = len(ERROR_ITERVAL_MAPPING) - 1
+                sleep_time = ERROR_ITERVAL_MAPPING[error_mapping]
                 _LOGGER.debug(
                     "Sleeping for fail #%s, in %s seconds", self._fails, sleep_time
                 )
                 self.device_client.reset_socket()
                 time.sleep(sleep_time)
+
+    @callback
+    def reset_fail_counter(self):
+        self._fails = 0
 
     @callback
     def dispatcher_new_data(self):

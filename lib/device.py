@@ -43,15 +43,12 @@ class Device(object):
 
     def run(self, once: bool = True) -> bool:
         self._loop = True
+        if self._socket.fileno() == -1:
+            self.reset_socket()
+        self._connect()
         if once:
-            if self._socket.fileno() == -1:
-                self.reset_socket()
-            self._connect()
             return self._run(once)
         else:
-            if self._socket.fileno() == -1:
-                self.reset_socket()
-            self._connect()
             self._run(once)
             return not self._loop
 
