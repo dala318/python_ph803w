@@ -123,7 +123,7 @@ class DeviceData(threading.Thread):
                 error_mapping = self._fails
                 if error_mapping >= len(ERROR_ITERVAL_MAPPING):
                     error_mapping = len(ERROR_ITERVAL_MAPPING) - 1
-                sleep_time = timedelta(seconds=ERROR_ITERVAL_MAPPING[error_mapping])
+                sleep_time = ERROR_ITERVAL_MAPPING[error_mapping]
                 _LOGGER.debug(
                     "Sleeping for fail #%s, in %s seconds", self._fails, sleep_time
                 )
