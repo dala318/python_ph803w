@@ -91,6 +91,7 @@ class Device(object):
         # from now on some cyclig bahavior
         data = bytes.fromhex("000000030400009002")
         self._socket.sendall(data)
+        self._empty_counter = 0
 
         # If continous reading ping/pong needs to be run cyclic
         if not once:
@@ -103,7 +104,7 @@ class Device(object):
         while self._loop:
             response = self._socket.recv(1024)
             if self._empty_counter > ABORT_AFTER_CONSECUTIVE_EMPTY:
-                _LOGGER.error("Too many empty consecutive packages")
+                _LOGGER.warning("Too many empty consecutive packages")
                 raise DeviceError("Too many empty consecutive packages")
             if len(response) == 0:
                 self._empty_counter += 1
@@ -267,7 +268,7 @@ class OutlierFilter:
                     return val
         except StatisticsError:
             return self._values[-1]
-        _LOGGER.error("No match in outlier filter shall never happen!")
+        _LOGGER.warning("No match in outlier filter shall never happen!")
         return self._values[-1]
 
 
