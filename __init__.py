@@ -114,7 +114,7 @@ class DeviceData(threading.Thread):
 
             try:
                 self.device_client.run(once=False)
-            except (device.DeviceError, ConnectionError):
+            except (device.DeviceError, RecursionError, ConnectionError):
                 _LOGGER.exception("Failed to read data, attempting to recover")
                 self.device_client.close()
                 self._fails += 1
