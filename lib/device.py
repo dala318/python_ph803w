@@ -1,4 +1,5 @@
 """A PH-803W device value collector."""
+from statistics import stdev, mean, StatisticsError
 import threading
 import socket
 import logging
@@ -23,6 +24,7 @@ class Device(object):
         self.passcode = ""
         self._measurements = []
         self._latest_measurement = None
+        self._measurements_filter = None
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._loop = True
         self._empty_counter = 0
@@ -41,15 +43,12 @@ class Device(object):
 
     def run(self, once: bool = True) -> bool:
         self._loop = True
+        if self._socket.fileno() == -1:
+            self.reset_socket()
+        self._connect()
         if once:
-            if self._socket.fileno() == -1:
-                self.reset_socket()
-            self._connect()
             return self._run(once)
         else:
-            if self._socket.fileno() == -1:
-                self.reset_socket()
-            self._connect()
             self._run(once)
             return not self._loop
 
@@ -92,6 +91,7 @@ class Device(object):
         # from now on some cyclig bahavior
         data = bytes.fromhex("000000030400009002")
         self._socket.sendall(data)
+        self._empty_counter = 0
 
         # If continous reading ping/pong needs to be run cyclic
         if not once:
@@ -104,7 +104,7 @@ class Device(object):
         while self._loop:
             response = self._socket.recv(1024)
             if self._empty_counter > ABORT_AFTER_CONSECUTIVE_EMPTY:
-                _LOGGER.error("Too many empty consecutive packages")
+                _LOGGER.warning("Too many empty consecutive packages")
                 raise DeviceError("Too many empty consecutive packages")
             if len(response) == 0:
                 self._empty_counter += 1
@@ -162,22 +162,26 @@ class Device(object):
         elif message_type == 0x94:
             self._handle_data_extended_response(data)
         else:
-            pass
             _LOGGER.warning(
                 "Ignore data package because invalid message type %s" % message_type
             )
 
     def _handle_passcode_response(self, data):
-        pass
         _LOGGER.warning("Passcode resonse ignored")
 
     def _handle_login_response(self, data):
-        pass
         _LOGGER.warning("Login resonse ignored")
 
     def _handle_data_response(self, data):
         if len(data) == 18:
             meas = Measurement(data)
+            if self._measurements_filter is None:
+                self._measurements_filter = MeasOutlierFilter(meas.ph, meas.orp)
+            else:
+                self._measurements_filter.add(meas.ph, meas.orp)
+            meas.add_filtered(
+                self._measurements_filter.get_ph(), self._measurements_filter.get_orp()
+            )
             _LOGGER.debug("Adding result: %s" % meas)
             self._measurements.append(meas)
             self._latest_measurement = meas
@@ -185,20 +189,12 @@ class Device(object):
                 self._measurements.pop(0)
             for callback in self._callbacks:
                 callback()
-        else:
-            pass
-        _LOGGER.debug(meas)
+            _LOGGER.debug(meas)
 
     def _handle_data_extended_response(self, data):
-        pass
         _LOGGER.warning("Extended data ignored")
 
     def _handle_ping_pong_response(self):
-        # if self._pong_thread is None or self._pong_thread.done:
-        #     self._pong_thread = asyncio.create_task(self._async_queue_ping())
-        #     pass
-        # else:
-        #     _LOGGER.debug("Pong thread alredy running")
         _LOGGER.debug("Pong message received")
 
     def _send_ping(self):
@@ -210,10 +206,6 @@ class Device(object):
         while self._loop:
             self._send_ping()
             sleep(PH803W_PING_INTERVAL)
-
-    # async def _async_queue_ping(self):
-    #     await asyncio.sleep(PH803W_PING_INTERVAL)
-    #     self._send_ping()
 
     def abort(self):
         self._loop = False
@@ -240,6 +232,46 @@ class Device(object):
         self.close()
 
 
+class MeasOutlierFilter:
+    def __init__(self, ph: float, orp: float, history: int = 10) -> None:
+        self._ph_filter = OutlierFilter(ph, history)
+        self._orp_filter = OutlierFilter(orp, history)
+
+    def add(self, ph: float, orp: float) -> None:
+        self._ph_filter.add(ph)
+        self._orp_filter.add(orp)
+
+    def get_ph(self) -> float:
+        return self._ph_filter.get()
+
+    def get_orp(self) -> float:
+        return self._orp_filter.get()
+
+
+class OutlierFilter:
+    def __init__(self, init_value: float, history: int = 10) -> None:
+        self._values = []
+        self._values.append(init_value)
+        self._history = history
+
+    def add(self, value: float) -> None:
+        self._values.append(value)
+        if len(self._values) > self._history:
+            self._values.pop(0)
+
+    def get(self) -> float:
+        try:
+            stddev_val = stdev(self._values)
+            mean_val = mean(self._values)
+            for val in reversed(self._values):
+                if (val <= mean_val + stddev_val) and (val >= mean_val - stddev_val):
+                    return val
+        except StatisticsError:
+            return self._values[-1]
+        _LOGGER.warning("No match in outlier filter shall never happen!")
+        return self._values[-1]
+
+
 class Measurement:
     def __init__(self, data) -> None:
         flag1 = data[8]
@@ -255,6 +287,10 @@ class Measurement:
         self.unknown1 = int.from_bytes(unknown1_raw, "big")
         unknown2_raw = data[15:18]
         self.unknown2 = int.from_bytes(unknown2_raw, "big")
+
+    def add_filtered(self, ph_filt: float, orp_filt: float) -> None:
+        self.ph = ph_filt
+        self.orp = orp_filt
 
     def __str__(self) -> str:
         return "pH: %s, Orp: %s, In-water: %s, pH-on: %s, Orp-on: %s" % (
