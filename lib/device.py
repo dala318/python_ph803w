@@ -1,4 +1,5 @@
 """A PH-803W device value collector."""
+from statistics import stdev, mean, StatisticsError
 import threading
 import socket
 import logging
@@ -23,6 +24,7 @@ class Device(object):
         self.passcode = ""
         self._measurements = []
         self._latest_measurement = None
+        self._measurements_filter = None
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._loop = True
         self._empty_counter = 0
@@ -178,6 +180,13 @@ class Device(object):
     def _handle_data_response(self, data):
         if len(data) == 18:
             meas = Measurement(data)
+            if self._measurements_filter is None:
+                self._measurements_filter = MeasOutlierFilter(meas.ph, meas.orp)
+            else:
+                self._measurements_filter.add(meas.ph, meas.orp)
+            meas.add_filtered(
+                self._measurements_filter.get_ph(), self._measurements_filter.get_orp()
+            )
             _LOGGER.debug("Adding result: %s" % meas)
             self._measurements.append(meas)
             self._latest_measurement = meas
@@ -240,6 +249,46 @@ class Device(object):
         self.close()
 
 
+class MeasOutlierFilter:
+    def __init__(self, ph: float, orp: float, history: int = 10) -> None:
+        self._ph_filter = OutlierFilter(ph, history)
+        self._orp_filter = OutlierFilter(orp, history)
+
+    def add(self, ph, orp):
+        self._ph_filter.add(ph)
+        self._orp_filter.add(orp)
+
+    def get_ph(self) -> float:
+        return self._ph_filter.get()
+
+    def get_orp(self) -> float:
+        return self._orp_filter.get()
+
+
+class OutlierFilter:
+    def __init__(self, init_value: float, history: int = 10) -> None:
+        self._values = []
+        self._values.append(init_value)
+        self._history = history
+
+    def add(self, value):
+        self._values.append(value)
+        if len(self._values) > self._history:
+            self._values.pop(0)
+
+    def get(self) -> float:
+        try:
+            stddev_val = stdev(self._values)
+            mean_val = mean(self._values)
+            for val in reversed(self._values):
+                if (val <= mean_val + stddev_val) and (val >= mean_val - stddev_val):
+                    return val
+        except StatisticsError:
+            return self._values[0]
+        _LOGGER.error("No match in outlier filter shall never happen!")
+        return None
+
+
 class Measurement:
     def __init__(self, data) -> None:
         flag1 = data[8]
@@ -249,17 +298,25 @@ class Measurement:
         self.ph_on = flag2 & 0b0000_0001 != 0
         ph_raw = data[10:12]
         self.ph = int.from_bytes(ph_raw, "big") * 0.01
+        self.ph_filt = None
         orp_raw = data[12:14]
         self.orp = int.from_bytes(orp_raw, "big") - 2000
+        self.orp_filt = None
         unknown1_raw = data[14:16]
         self.unknown1 = int.from_bytes(unknown1_raw, "big")
         unknown2_raw = data[15:18]
         self.unknown2 = int.from_bytes(unknown2_raw, "big")
 
+    def add_filtered(self, ph_filt, orp_filt):
+        self.ph_filt = ph_filt
+        self.orp_filt = orp_filt
+
     def __str__(self) -> str:
-        return "pH: %s, Orp: %s, In-water: %s, pH-on: %s, Orp-on: %s" % (
+        return "pH: %s (%s), Orp: %s (%s), In-water: %s, pH-on: %s, Orp-on: %s" % (
             self.ph,
+            self.ph_filt,
             self.orp,
+            self.orp_filt,
             self.in_water,
             self.ph_on,
             self.orp_on,
