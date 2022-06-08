@@ -218,6 +218,8 @@ class Device(object):
             self._socket.close()
         except:
             pass
+        for callback in self._callbacks:
+            callback()
 
     def get_measurements_and_empty(self):
         meas = self._measurements
