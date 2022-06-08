@@ -212,10 +212,14 @@ class Device(object):
 
     def close(self):
         self._loop = False
+        self._latest_measurement = None
+        # self._measurements.clear()
         try:
             self._socket.close()
         except:
             pass
+        for callback in self._callbacks:
+            callback()
 
     def get_measurements_and_empty(self):
         meas = self._measurements

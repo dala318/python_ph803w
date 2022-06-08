@@ -150,4 +150,6 @@ class DeviceSensor(SensorEntity):
                 self._attr,
                 None,
             )
-            self.async_write_ha_state()
+        else:
+            self._state = None
+        self.async_write_ha_state()
