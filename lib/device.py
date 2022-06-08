@@ -212,6 +212,8 @@ class Device(object):
 
     def close(self):
         self._loop = False
+        self._latest_measurement = None
+        # self._measurements.clear()
         try:
             self._socket.close()
         except:
