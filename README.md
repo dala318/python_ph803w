@@ -17,3 +17,4 @@ In desktop mode (running cyclic with lib/main.py) it performs a bit better.
 ph803w:
   host: 192.168.1.2    # IP of your device
 ```
+## Changelog
