@@ -10,6 +10,7 @@ from .lib import device
 from .const import DOMAIN
 
 from homeassistant.components import persistent_notification
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONF_HOST,
     EVENT_HOMEASSISTANT_STOP,
@@ -38,14 +39,12 @@ CONFIG_SCHEMA = vol.Schema(
     },
     extra=vol.ALLOW_EXTRA,
 )
+PLATFORMS: list[str] = ["sensor", "binary_sensor"]
 
 
-def setup(hass: HomeAssistant, base_config: ConfigType) -> bool:
-    """Set up waterfurnace platform."""
-
-    config = base_config[DOMAIN]
-
-    host = config[CONF_HOST]
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up Hello World from a config entry."""
+    host = entry.data["host"]
 
     device_client = device.Device(host)
     try:
@@ -56,12 +55,50 @@ def setup(hass: HomeAssistant, base_config: ConfigType) -> bool:
         _LOGGER.error("Could no connect ot device")
         return False
 
-    hass.data[DOMAIN] = DeviceData(hass, device_client)
-    hass.data[DOMAIN].start()
+    # device_data = DeviceData(hass, device_client)
+    # device_data.start()
 
-    discovery.load_platform(hass, Platform.SENSOR, DOMAIN, {}, config)
-    discovery.load_platform(hass, Platform.BINARY_SENSOR, DOMAIN, {}, config)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = DeviceData(hass, device_client)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id].start()
+
+    hass.config_entries.async_setup_platforms(entry, PLATFORMS)
     return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a config entry."""
+    # This is called when an entry/configured device is to be removed. The class
+    # needs to unload itself, and remove callbacks. See the classes for further
+    # details
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        hass.data[DOMAIN].pop(entry.entry_id)
+
+    return unload_ok
+
+
+# def setup(hass: HomeAssistant, base_config: ConfigType) -> bool:
+#     """Set up waterfurnace platform."""
+
+#     config = base_config[DOMAIN]
+
+#     host = config[CONF_HOST]
+
+#     device_client = device.Device(host)
+#     try:
+#         if not device_client.run(once=True):
+#             _LOGGER.error("Device found but no measuremetn was received")
+#             return False
+#     except TimeoutError:
+#         _LOGGER.error("Could no connect ot device")
+#         return False
+
+#     hass.data[DOMAIN] = DeviceData(hass, device_client)
+#     hass.data[DOMAIN].start()
+
+#     discovery.load_platform(hass, Platform.SENSOR, DOMAIN, {}, config)
+#     discovery.load_platform(hass, Platform.BINARY_SENSOR, DOMAIN, {}, config)
+#     return True
 
 
 class DeviceData(threading.Thread):
