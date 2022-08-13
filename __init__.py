@@ -24,6 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 
 UPDATE_TOPIC = f"{DOMAIN}_update"
 ERROR_ITERVAL_MAPPING = [0, 10, 60, 300, 600, 3000, 6000]
+ERROR_RECONNECT_INTERVAL = 300
 NOTIFICATION_ID = "ph803w_device_notification"
 NOTIFICATION_TITLE = "PH-803W Device status"
 
@@ -115,13 +116,13 @@ class DeviceData(threading.Thread):
             self.device_client = device.Device(self.host)
             try:
                 if not self.device_client.run(once=True):
-                    _LOGGER.info("Device found but no measurement was received, reconnecting in 1min")
-                    time.sleep(60)
+                    _LOGGER.info(f"Device found but no measurement was received, reconnecting in {ERROR_RECONNECT_INTERVAL} seconds")
+                    time.sleep(ERROR_RECONNECT_INTERVAL)
                     continue
             except Exception as e:
                 _LOGGER.info(f"Error connecting to device at {self.host}: {str(e)}")
-                _LOGGER.info("Retrying connection in 1min")
-                time.sleep(60)
+                _LOGGER.info(f"Retrying connection in {ERROR_RECONNECT_INTERVAL} seconds")
+                time.sleep(ERROR_RECONNECT_INTERVAL)
                 continue
 
             _LOGGER.debug("Registering callbacks")
