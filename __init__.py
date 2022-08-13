@@ -136,7 +136,7 @@ class DeviceData(threading.Thread):
                 try:
                     _LOGGER.info("Starting device client loop")
                     self.device_client.run(once=False)
-                except (device.DeviceError, RecursionError, ConnectionError) as e:
+                except Exception as e:
                     _LOGGER.exception(f"Failed to read data: {str(e)}")
                     self.device_client.close()
                     self._fails += 1
