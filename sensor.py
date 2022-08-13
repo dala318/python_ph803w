@@ -80,12 +80,15 @@ class DeviceSensor(SensorEntity):
         self._name = config.friendly_name
         self._attr = config.field
         self._state = None
-        if self.device_data.device_client.get_latest_measurement() is not None:
+
+        measurement = self.device_data.measurement()
+        if measurement is not None:
             self._state = getattr(
-                self.device_data.device_client.get_latest_measurement(),
+                measurement,
                 self._attr,
                 None,
             )
+
         self._icon = config.icon
         self._unit_of_measurement = config.unit_of_measurement
         self._attr_device_class = config.device_class
@@ -104,14 +107,14 @@ class DeviceSensor(SensorEntity):
     def device_info(self):
         """Return information to link this entity with the correct device."""
         return {
-            "identifiers": {(DOMAIN, self.device_data.device_client.passcode)},
-            "name": self.device_data.device_client.get_unique_name(),
+            "identifiers": {(DOMAIN, self.device_data.passcode())},
+            "name": self.device_data.unique_name(),
         }
 
     @property
     def unique_id(self):
         """Return the sensor unique id."""
-        return self.device_data.device_client.passcode + self._attr
+        return self.device_data.passcode() + self._attr
 
     @property
     def native_value(self):
@@ -144,9 +147,9 @@ class DeviceSensor(SensorEntity):
     @callback
     def async_update_callback(self):
         """Update state."""
-        if self.device_data.device_client.get_latest_measurement() is not None:
+        if self.device_data.measurement() is not None:
             self._state = getattr(
-                self.device_data.device_client.get_latest_measurement(),
+                self.device_data.measurement(),
                 self._attr,
                 None,
             )
