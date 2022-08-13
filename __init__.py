@@ -45,18 +45,7 @@ def setup(hass: HomeAssistant, base_config: ConfigType) -> bool:
 
     config = base_config[DOMAIN]
 
-    host = config[CONF_HOST]
-
-    device_client = device.Device(host)
-    try:
-        if not device_client.run(once=True):
-            _LOGGER.error("Device found but no measuremetn was received")
-            return False
-    except TimeoutError:
-        _LOGGER.error("Could no connect ot device")
-        return False
-
-    hass.data[DOMAIN] = DeviceData(hass, device_client)
+    hass.data[DOMAIN] = DeviceData(hass, config)
     hass.data[DOMAIN].start()
 
     discovery.load_platform(hass, Platform.SENSOR, DOMAIN, {}, config)
@@ -72,16 +61,29 @@ class DeviceData(threading.Thread):
     for every new data, could work for the pH and ORP data but for the
     switches a more direct feedback is wanted."""
 
-    def __init__(self, hass, device_client: device.Device) -> None:
+    def __init__(self, hass, config) -> None:
         super().__init__()
         self.name = "Ph803wThread"
         self.hass = hass
-        self.device_client = device_client
-        self.device_client.register_callback(self.dispatcher_new_data)
-        self.device_client.register_callback(self.reset_fail_counter)
-        self.host = self.device_client.host
+        self.host = config[CONF_HOST]
+        self.device_client = None
         self._shutdown = False
         self._fails = 0
+
+    def passcode(self):
+        if self.device_client is not None:
+            return self.device_client.passcode
+        return "unknown"
+
+    def unique_name(self):
+        if self.device_client is not None:
+            return self.device_client.get_unique_name()
+        return "unknown"
+
+    def measurement(self):
+        if self.device_client is not None:
+            return self.device_client.get_latest_measurement()
+        return None
 
     def run(self):
         """Thread run loop."""
@@ -92,9 +94,10 @@ class DeviceData(threading.Thread):
 
             def shutdown(event):
                 """Shutdown the thread."""
-                _LOGGER.debug("Signaled to shutdown")
+                _LOGGER.info("Signaled to shutdown")
                 self._shutdown = True
-                self.device_client.abort()
+                if self.device_client is not None:
+                    self.device_client.abort()
                 self.join()
 
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, shutdown)
@@ -108,25 +111,42 @@ class DeviceData(threading.Thread):
         # least every 4 seconds the device side closes the
         # connection.
         while True:
-            if self._shutdown:
-                _LOGGER.debug("Graceful shutdown")
-                return
-
+            _LOGGER.info(f"Attempting to connect to device at {self.host}")
+            self.device_client = device.Device(self.host)
             try:
-                self.device_client.run(once=False)
-            except (device.DeviceError, RecursionError, ConnectionError):
-                _LOGGER.exception("Failed to read data, attempting to recover")
-                self.device_client.close()
-                self._fails += 1
-                error_mapping = self._fails
-                if error_mapping >= len(ERROR_ITERVAL_MAPPING):
-                    error_mapping = len(ERROR_ITERVAL_MAPPING) - 1
-                sleep_time = ERROR_ITERVAL_MAPPING[error_mapping]
-                _LOGGER.debug(
-                    "Sleeping for fail #%s, in %s seconds", self._fails, sleep_time
-                )
-                self.device_client.reset_socket()
-                time.sleep(sleep_time)
+                if not self.device_client.run(once=True):
+                    _LOGGER.info("Device found but no measurement was received, reconnecting in 1min")
+                    time.sleep(60)
+                    continue
+            except Exception as e:
+                _LOGGER.info(f"Error connecting to device at {self.host}: {str(e)}")
+                _LOGGER.info("Retrying connection in 1min")
+                time.sleep(60)
+                continue
+
+            _LOGGER.debug("Registering callbacks")
+            self.device_client.register_callback(self.dispatcher_new_data)
+            self.device_client.register_callback(self.reset_fail_counter)
+
+            while True:
+                if self._shutdown:
+                    _LOGGER.debug("Graceful shutdown")
+                    return
+
+                try:
+                    _LOGGER.info("Starting device client loop")
+                    self.device_client.run(once=False)
+                except (device.DeviceError, RecursionError, ConnectionError) as e:
+                    _LOGGER.exception(f"Failed to read data: {str(e)}")
+                    self.device_client.close()
+                    self._fails += 1
+                    error_mapping = self._fails
+                    if error_mapping >= len(ERROR_ITERVAL_MAPPING):
+                        error_mapping = len(ERROR_ITERVAL_MAPPING) - 1
+                    sleep_time = ERROR_ITERVAL_MAPPING[error_mapping]
+                    _LOGGER.info(f"Sleeping {str(sleep_time)}s for failure #{str(self._fails)}")
+                    self.device_client.reset_socket()
+                    time.sleep(sleep_time)
 
     @callback
     def reset_fail_counter(self):
