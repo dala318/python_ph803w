@@ -71,15 +71,18 @@ class DeviceData(threading.Thread):
         self._shutdown = False
         self._fails = 0
 
+    def connected(self):
+        return self.device_client is not None
+
     def passcode(self):
         if self.device_client is not None:
             return self.device_client.passcode
-        return "unknown"
+        return None
 
     def unique_name(self):
         if self.device_client is not None:
             return self.device_client.get_unique_name()
-        return "unknown"
+        return None
 
     def measurement(self):
         if self.device_client is not None:
@@ -112,19 +115,27 @@ class DeviceData(threading.Thread):
         # least every 4 seconds the device side closes the
         # connection.
         while True:
+            self.device_client = None
+
             _LOGGER.info(f"Attempting to connect to device at {self.host}")
-            self.device_client = device.Device(self.host)
+            device_client = device.Device(self.host)
+
             try:
-                if not self.device_client.run(once=True):
-                    _LOGGER.info(f"Device found but no measurement was received, reconnecting in {ERROR_RECONNECT_INTERVAL} seconds")
+                if not device_client.run(once=True):
+                    _LOGGER.info(
+                        f"Device found but no measurement was received, reconnecting in {ERROR_RECONNECT_INTERVAL} seconds")
                     time.sleep(ERROR_RECONNECT_INTERVAL)
                     continue
+
             except Exception as e:
-                _LOGGER.info(f"Error connecting to device at {self.host}: {str(e)}")
-                _LOGGER.info(f"Retrying connection in {ERROR_RECONNECT_INTERVAL} seconds")
+                _LOGGER.info(
+                    f"Error connecting to device at {self.host}: {str(e)}")
+                _LOGGER.info(
+                    f"Retrying connection in {ERROR_RECONNECT_INTERVAL} seconds")
                 time.sleep(ERROR_RECONNECT_INTERVAL)
                 continue
 
+            self.device_client = device_client
             _LOGGER.debug("Registering callbacks")
             self.device_client.register_callback(self.dispatcher_new_data)
             self.device_client.register_callback(self.reset_fail_counter)
@@ -145,7 +156,8 @@ class DeviceData(threading.Thread):
                     if error_mapping >= len(ERROR_ITERVAL_MAPPING):
                         error_mapping = len(ERROR_ITERVAL_MAPPING) - 1
                     sleep_time = ERROR_ITERVAL_MAPPING[error_mapping]
-                    _LOGGER.info(f"Sleeping {str(sleep_time)}s for failure #{str(self._fails)}")
+                    _LOGGER.info(
+                        f"Sleeping {str(sleep_time)}s for failure #{str(self._fails)}")
                     self.device_client.reset_socket()
                     time.sleep(sleep_time)
 
