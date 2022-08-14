@@ -41,7 +41,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(hass: HomeAssistant, base_config: ConfigType) -> bool:
+async def async_setup(hass: HomeAssistant, base_config: ConfigType) -> bool:
     """Set up waterfurnace platform."""
 
     config = base_config[DOMAIN]
@@ -139,6 +139,8 @@ class DeviceData(threading.Thread):
             _LOGGER.debug("Registering callbacks")
             self.device_client.register_callback(self.dispatcher_new_data)
             self.device_client.register_callback(self.reset_fail_counter)
+
+            _LOGGER.info(f"Connected to {self.host}")
 
             while True:
                 if self._shutdown:
