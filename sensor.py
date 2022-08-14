@@ -15,6 +15,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.util import slugify
+from homeassistant.exceptions import PlatformNotReady
 
 from . import UPDATE_TOPIC
 from .const import DOMAIN
@@ -53,10 +54,10 @@ SENSORS = [
 ]
 
 
-def setup_platform(
+async def async_setup_platform(
     hass: HomeAssistant,
     config: ConfigType,
-    add_entities: AddEntitiesCallback,
+    async_add_entities: AddEntitiesCallback,
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
     """Set up the PH-803W sensor."""
@@ -65,10 +66,14 @@ def setup_platform(
 
     sensors = []
     device_data = hass.data[DOMAIN]
+    if not device_data.connected():
+        raise PlatformNotReady(f"PH-803W not connected yet")
+
+    _LOGGER.info(f"PH-803W connected, creating entities")
     for sconfig in SENSORS:
         sensors.append(DeviceSensor(device_data, sconfig))
 
-    add_entities(sensors)
+    async_add_entities(sensors)
 
 
 class DeviceSensor(SensorEntity):
