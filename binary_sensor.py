@@ -162,10 +162,10 @@ class DeviceSensor(BinarySensorEntity):
     @callback
     def async_update_callback(self):
         """Update state."""
-        measurmenet = self.device_data.measurement()
-        if measurmenet is not None:
+        measurement = self.device_data.measurement()
+        if measurement is not None:
             self._state = getattr(
-                measurmenet,
+                measurement,
                 self._attr,
                 None,
             )
