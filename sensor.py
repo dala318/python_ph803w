@@ -7,9 +7,7 @@ from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
 )
-from homeassistant.const import (
-    ELECTRIC_POTENTIAL_MILLIVOLT,
-)
+from homeassistant.const import UnitOfElectricPotential
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -48,7 +46,7 @@ SENSORS = [
         "PH-803W ORP",
         "orp",
         "mdi:water-opacity",
-        ELECTRIC_POTENTIAL_MILLIVOLT,
+       UnitOfElectricPotential.MILLIVOLT,
         SensorDeviceClass.VOLTAGE,
     ),
 ]
